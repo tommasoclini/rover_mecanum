@@ -108,13 +108,30 @@ impl<T: FourWheeledRobot> MecanumRobot for T {
         let theta = theta.get::<uom::si::angle::radian>() - core::f32::consts::FRAC_PI_4;
         let turn = turn.inner();
 
-        let fl = MotorPower::new(power * libm::cosf(theta) + turn);
-        let fr = MotorPower::new(power * libm::sinf(theta) - turn);
-        let bl = MotorPower::new(power * libm::sinf(theta) + turn);
-        let br = MotorPower::new(power * libm::cosf(theta) - turn);
+        let sin = libm::sinf(theta);
+        let cos = libm::cosf(theta);
+        let max = f32::max(sin, cos);
 
-        FourWheeledRobot::drive(self, fl, fr, bl, br)
-            .map_err(|e| <Self as MecanumRobot>::Error::Internal(e))
+        let mut fl = power * cos / max + turn;
+        let mut fr = power * sin / max - turn;
+        let mut bl = power * sin / max + turn;
+        let mut br = power * cos / max - turn;
+
+        if power + libm::fabsf(turn) > 1.0 {
+            fl /= power + turn;
+            fr /= power + turn;
+            bl /= power + turn;
+            br /= power + turn;
+        }
+
+        FourWheeledRobot::drive(
+            self,
+            MotorPower::new(fl),
+            MotorPower::new(fr),
+            MotorPower::new(bl),
+            MotorPower::new(br),
+        )
+        .map_err(|e| <Self as MecanumRobot>::Error::Internal(e))
     }
     fn neutral(&mut self) -> Result<(), Self::Error> {
         self.neutral()
